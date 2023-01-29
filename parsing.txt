@@ -1,0 +1,51 @@
+uint8_t GetNGPSField(uint8_t *Message,uint8_t *field,uint8_t ParmNum, uint8_t Seperator, uint8_t EoM )
+{
+
+ const MESSAGE_EOM ='\0';
+
+ uint8_t i; // generic indexers
+
+ uint8_t *message_token;    // pointer used in NMEA message tokenizer
+ uint8_t *message_field;    // pointer used in NMEA message tokenizer
+
+ uint8_t inMessage[128];
+ uint8_t tail[2];
+ tail[0]=Seperator;
+ tail[1]=MESSAGE_EOM;
+
+
+ memset(&inMessage,'\0',sizeof(inMessage));
+ strcpy(&inMessage,Message);
+
+ if (EoM == MESSAGE_EOM)
+ strcat(&inMessage,&tail);
+
+
+
+ message_token = &inMessage; // initialize and run  message buffer tokenizer
+
+    i = 0;
+    message_field = message_token;
+
+
+    while (*message_token != '\0')
+    {
+
+        if ((*message_token == Seperator)|| (*message_token == EoM) )
+        {
+
+            *message_token = '\0'; // terminate string after field separator or end-of-message characters
+            if (i == ParmNum)
+             {
+              strcpy(field,message_field);
+              return 1;
+             }
+            message_field = message_token+1;  // save position of the next token
+            i++;
+        }
+        message_token++;
+    }
+}
+
+
+				GetNGPSField(GPS_DATA,  field_LAT  ,1, 0x2C, 0x10);

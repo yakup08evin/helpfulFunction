@@ -1,0 +1,358 @@
+void CAN_DoFilter(CAN_TypeDef * CAN, uint32_t FilterBank, uint32_t filter_id, uint32_t filter_mask )
+{
+
+	// do this  problematic
+	CAN_FilterTypeDef filter;
+
+	filter.FilterIdHigh         = ((filter_id << 5)  | (filter_id >> (32 - 5))) & 0xFFFF; // STID[10:0] & EXTID[17:13]
+	filter.FilterIdLow          = (filter_id >> (11 - 3)) & 0xFFF8; // EXID[12:5] & 3 Reserved bits
+
+	filter.FilterMaskIdHigh     = ((filter_mask << 5)  | (filter_mask >> (32 - 5))) & 0xFFFF;
+	filter.FilterMaskIdLow      = (filter_mask >> (11 - 3)) & 0xFFF8;
+
+	filter.FilterFIFOAssignment = CAN_FILTER_FIFO0;
+	filter.FilterBank           = FilterBank;
+	filter.FilterMode           = CAN_FILTERMODE_IDMASK;
+	filter.FilterScale          = CAN_FILTERSCALE_32BIT;
+	filter.FilterActivation     = ENABLE;
+	HAL_CAN_ConfigFilter(CAN, &filter);
+}
+
+//========================================================================================
+//  Set Filter Mask Mode 32
+//========================================================================================
+void CAN_SetFilterMaskMode32 (CAN_TypeDef * CAN, uint8_t FilterIndex, uint32_t CanId, uint32_t IdMask,uint32_t IdType, uint8_t FilterFifo)
+{
+
+  uint32_t  Id   = 0;
+  uint32_t  Mask = 0;
+
+
+    CAN->FMR  |=  CAN_FMR_FINIT;                           // set Initialisation mode for filter banks
+    CAN->FA1R &=  ~(uint32_t)(1 << FilterIndex);           // deactivate filter
+
+    CAN->FM1R &=  ~(uint32_t)(1 << FilterIndex);           // 32-bit identifier Id MASK Mode
+
+
+     CAN->FS1R |=   (uint32_t)(1 << FilterIndex);          // set 32-bit scale configuration
+        if (IdType == CAN_ID_STD)
+         {
+           Id    = (uint32_t)(CanId  << 21) | CAN_ID_STD;  // Standard ID
+           Mask  = (uint32_t)(IdMask << 21) | CAN_ID_EXT;  // Standard ID Mask
+         }
+         else if (IdType == CAN_ID_EXT)
+         {
+           Id    = (uint32_t)(CanId  << 3) | CAN_ID_EXT;   // Extended ID
+           Mask  = (uint32_t)(IdMask << 3) | CAN_ID_EXT;   // Extended ID Mask
+         }
+         else
+           return;
+
+    CAN->sFilterRegister[FilterIndex].FR1 = Id;             //  32-bit identifier
+    CAN->sFilterRegister[FilterIndex].FR2 = Mask;           //  32-bit identifier Mask
+
+
+  if( FilterFifo == CAN_FILTER_FIFO0)
+    CAN->FFA1R &= ~(uint32_t)(1 << FilterIndex);    // assign filter to FIFO 0
+  else if( FilterFifo == CAN_FILTER_FIFO1)
+    CAN->FFA1R |= (uint32_t)(1 << FilterIndex);     // assign filter to FIFO 1
+  else
+    return;
+
+
+  CAN->FA1R  |=  (uint32_t)(1 << FilterIndex);    // activate filter
+  CAN->FMR &= ~CAN_FMR_FINIT;  // reset Initialisation mode for filter banks
+
+
+}
+
+
+//========================================================================================
+//  Set Filter ListMode 32
+//========================================================================================
+void CAN_SetFilterListMode32 (CAN_TypeDef * CAN, uint8_t FilterIndex, uint32_t CanListId1, uint32_t CanListId2,uint32_t IdType, uint8_t FilterFifo )
+{
+
+  uint32_t  Id1   = 0;
+  uint32_t  Id2   = 0;
+
+
+
+    CAN->FMR  |=  CAN_FMR_FINIT;                      // set Initialisation mode for filter banks
+    CAN->FA1R &= ~(uint32_t)(1 << FilterIndex);  // deactivate filter
+
+    CAN->FM1R |=  (uint32_t)(1 << FilterIndex);    // set 2 32-bit identifier list mode
+
+    CAN->FS1R |=  (uint32_t)(1 << FilterIndex);    // set 32-bit scale configuration
+
+
+     CAN->FS1R |=   (uint32_t)(1 << FilterIndex);    // set 32-bit scale configuration
+     if ( IdType == CAN_ID_STD )
+      {
+        Id1 = (uint32_t)(CanListId1 << 21) | CAN_ID_STD;  // Standard ID
+        Id2 = (uint32_t)(CanListId2 << 21) | CAN_ID_STD;  // Standard ID Mask
+      }
+      else if ( IdType == CAN_ID_EXT )
+      {
+        Id1 = (uint32_t)(CanListId1 << 3) | CAN_ID_EXT;  // Extended ID
+        Id2 = (uint32_t)(CanListId2 << 3) | CAN_ID_EXT;  // Extended ID Mask
+      }
+       else
+         return;
+
+      CAN->sFilterRegister[FilterIndex].FR1 = Id1;        //  32-bit identifier 1
+      CAN->sFilterRegister[FilterIndex].FR2 = Id2;        //  32-bit identifier 2
+
+
+  if ( FilterFifo == CAN_FILTER_FIFO0 )
+    CAN->FFA1R &= ~(uint32_t)(1 << FilterIndex);    // assign filter to FIFO 0
+  else if( FilterFifo == CAN_FILTER_FIFO1)
+    CAN->FFA1R |=  (uint32_t)(1 << FilterIndex);    // assign filter to FIFO 1
+  else
+    return;
+
+
+
+  CAN->FA1R  |=  (uint32_t)(1 << FilterIndex);    // activate filter
+  CAN->FMR &= ~CAN_FMR_FINIT;  // reset Initialisation mode for filter banks
+
+
+}
+
+//========================================================================================
+//  Set Filter Mask Mode 16
+//========================================================================================
+void CAN_SetFilterMaskMode16 (CAN_TypeDef * CAN, uint8_t FilterIndex, uint32_t CanId1, uint32_t IdMask1,
+                                                                      uint32_t CanId2, uint32_t IdMask2,
+                                                                       uint8_t FilterFifo)
+{
+
+  uint32_t  Id   = 0;
+  uint32_t  Mask = 0;
+
+
+
+    CAN->FMR  |=  CAN_FMR_FINIT;                        // set Initialisation mode for filter banks
+    CAN->FA1R &=  ~(uint32_t)(1 << FilterIndex);    // deactivate filter
+
+    CAN->FM1R &=  ~(uint32_t)(1 << FilterIndex);    // Id MASK Mode
+    CAN->FS1R &=  ~(uint32_t)(1 << FilterIndex);    // set 16-bit scale configuration
+
+           Mask    = (uint32_t)(IdMask1  << 21) | (1  << 19);  // Standard ID
+           Id      = (uint32_t)(CanId1 << 5)  | (CAN_ID_STD  << 3);  // Standard ID Mask
+    CAN->sFilterRegister[FilterIndex].FR1 = Mask | Id;
+
+           Mask    = (uint32_t)(IdMask2  << 21) | (1  << 19);  // Standard ID
+           Id      = (uint32_t)(CanId2 << 5)  | (CAN_ID_STD  << 3);  // Standard ID Mask
+    CAN->sFilterRegister[FilterIndex].FR2 = Mask | Id;
+
+
+  if( FilterFifo == CAN_FILTER_FIFO0)
+    CAN->FFA1R &= ~(uint32_t)(1 << FilterIndex);    // assign filter to FIFO 0
+  else if( FilterFifo == CAN_FILTER_FIFO1)
+    CAN->FFA1R |= (uint32_t)(1 << FilterIndex);     // assign filter to FIFO 1
+  else
+    return;
+
+
+  CAN->FA1R  |=  (uint32_t)(1 << FilterIndex);    // activate filter
+  CAN->FMR &= ~CAN_FMR_FINIT;  // reset Initialisation mode for filter banks
+
+
+}
+
+//========================================================================================
+//  Set Filter List Mode 16
+//========================================================================================
+void CAN_SetFilterListMode16 (CAN_TypeDef * CAN, uint8_t FilterIndex, uint32_t CanListId1, uint32_t CanListId2, uint32_t CanListId3, uint32_t CanListId4,  uint8_t FilterFifo )
+{
+
+  uint32_t  Id1   = 0;
+  uint32_t  Id2   = 0;
+  uint32_t  Id3   = 0;
+  uint32_t  Id4   = 0;
+
+
+    CAN->FMR  |=  CAN_FMR_FINIT;                      // set Initialisation mode for filter banks
+    CAN->FA1R &= ~(uint32_t)(1 << FilterIndex);  // deactivate filter
+
+    CAN->FM1R |=  (uint32_t)(1 << FilterIndex);    // set identifier list mode
+    CAN->FS1R &= ~(uint32_t)(1 << FilterIndex);    // set 16-bit scale configuration
+
+        Id1 = (uint32_t)(CanListId1 << 5 ) | (CAN_ID_STD  << 4 );  // Standard ID 1
+        Id2 = (uint32_t)(CanListId2 << 21) | (CAN_ID_STD  << 20);  // Standard ID 2
+        Id3 = (uint32_t)(CanListId3 << 5 ) | (CAN_ID_STD  << 4 );  // Standard ID 3
+        Id4 = (uint32_t)(CanListId4 << 21) | (CAN_ID_STD  << 20);  // Standard ID 4
+
+
+      CAN->sFilterRegister[FilterIndex].FR1 = Id1 | Id2;        //  Dual identifier 1 2
+      CAN->sFilterRegister[FilterIndex].FR2 = Id3 | Id4;        //  Dual identifier 3 4
+
+
+  if ( FilterFifo == CAN_FILTER_FIFO0 )
+    CAN->FFA1R &= ~(uint32_t)(1 << FilterIndex);    // assign filter to FIFO 0
+  else if( FilterFifo == CAN_FILTER_FIFO1)
+    CAN->FFA1R |=  (uint32_t)(1 << FilterIndex);    // assign filter to FIFO 1
+  else
+    return;
+
+
+
+  CAN->FA1R  |=  (uint32_t)(1 << FilterIndex);    // activate filter
+  CAN->FMR &= ~CAN_FMR_FINIT;  // reset Initialisation mode for filter banks
+
+
+}
+
+
+void HAL_CAN_2MspInit(CAN_HandleTypeDef *hcan)
+{
+
+
+  /*##-3- Configure the NVIC #################################################*/
+  /* NVIC configuration for CAN1 Reception complete interrupt */
+  HAL_NVIC_SetPriority(CANx_RX0_IRQn, 1, 0);
+  HAL_NVIC_EnableIRQ(CANx_RX0_IRQn);
+
+
+  HAL_NVIC_SetPriority(CANx_RX1_IRQn, 1, 1);
+  HAL_NVIC_EnableIRQ(CANx_RX1_IRQn);
+
+}
+
+
+//========================================================================================
+// Set Can Frequency
+//========================================================================================
+void SetCanFrequency(CAN_HandleTypeDef *CanHandle, int hz) {
+
+
+	uint32_t Fpclk1 = HAL_RCC_GetPCLK1Freq();
+
+	printf("\r\n APB1 : %d \r\n",Fpclk1);
+    // APB1 peripheral clock = 36 000 000Hz
+
+    switch(hz) {
+    case BAUD_1000K:
+        // 1000kbps bit rate
+        CanHandle->Init.Prescaler = 2;      // number of time quanta = 36 000 000/2/1000000 = 18
+        CanHandle->Init.SyncJumpWidth = CAN_SJW_1TQ;
+        CanHandle->Init.TimeSeg1 = CAN_BS1_14TQ;  // sample point at: (1 + 14) / 18 * 100 = 83%
+        CanHandle->Init.TimeSeg2 = CAN_BS2_3TQ;
+        break;
+
+    case BAUD_500K:
+        // 500kbps bit rate
+        CanHandle->Init.Prescaler = 4;      // number of time quanta = 36 000 000/4/500000 = 18
+        CanHandle->Init.SyncJumpWidth = CAN_SJW_1TQ;
+        CanHandle->Init.TimeSeg1 = CAN_BS1_14TQ;  // sample point at: (1 + 14) / 18 * 100 = 83%
+        CanHandle->Init.TimeSeg2 = CAN_BS2_3TQ;
+        break;
+
+    case BAUD_250K:
+        // 250kbps
+        CanHandle->Init.Prescaler = 9;     // number of time quanta = 36 000 000/9/250000 = 16
+        CanHandle->Init.SyncJumpWidth = CAN_SJW_1TQ;
+        CanHandle->Init.TimeSeg1 = CAN_BS1_11TQ; // sample point at: (1 + 11) / 16 * 100 = 75%
+        CanHandle->Init.TimeSeg2 = CAN_BS2_4TQ;
+        break;
+
+    case BAUD_125K:
+        // 125kbps
+        CanHandle->Init.Prescaler = 18;     // number of time quanta = 36 000 000/18/125000 = 16
+        CanHandle->Init.SyncJumpWidth = CAN_SJW_1TQ;
+        CanHandle->Init.TimeSeg1 = CAN_BS1_11TQ; // sample point at: (1 + 11) / 16 * 100 = 75%
+        CanHandle->Init.TimeSeg2 = CAN_BS2_4TQ;
+        break;
+
+
+    case BAUD_100K:
+        // 100kbps
+        CanHandle->Init.Prescaler = 24;     // number of time quanta = 36 000 000/24/125000 = 15
+        CanHandle->Init.SyncJumpWidth = CAN_SJW_1TQ;
+        CanHandle->Init.TimeSeg1 = CAN_BS1_11TQ; // sample point at: (1 + 11) / 16 * 100 = 75%
+        CanHandle->Init.TimeSeg2 = CAN_BS2_3TQ;
+        break;
+
+
+    default:
+        // 250kbps
+        CanHandle->Init.Prescaler = 9;     // number of time quanta = 36 000 000/9/250000 = 16
+        CanHandle->Init.SyncJumpWidth = CAN_SJW_1TQ;
+        CanHandle->Init.TimeSeg1 = CAN_BS1_11TQ; // sample point at: (1 + 11) / 16 * 100 = 75%
+        CanHandle->Init.TimeSeg2 = CAN_BS2_4TQ;
+        break;
+    }
+
+}
+
+
+
+void CAN_Config(void)
+{
+
+	 CANcircBuffer = circular_buffer_init(sizeof(CanData));
+	 printf("CAN Buffer  starts...\n\n");
+	 printf("CAN Buffer ItemSize: %d\n", sizeof(CanData));
+	 printf("CAN Buffer Capacity: %d\n", circular_buffer_capacity(CANcircBuffer));
+	 printf("CAN Buffer Available Space: %d\n", circular_buffer_free_space(CANcircBuffer));
+
+
+
+  /*##-1- Configure the CAN peripheral #######################################*/
+  CanHandle.Instance = CANx;
+
+  CanHandle.Init.TimeTriggeredMode = DISABLE;
+  CanHandle.Init.AutoBusOff = DISABLE;
+  CanHandle.Init.AutoWakeUp = DISABLE;
+  CanHandle.Init.AutoRetransmission = DISABLE;
+  CanHandle.Init.ReceiveFifoLocked = DISABLE;
+  CanHandle.Init.TransmitFifoPriority = DISABLE;
+  CanHandle.Init.Mode = CAN_MODE_NORMAL;
+
+   SetCanFrequency(&CanHandle,BAUD_500K);
+
+
+  if (HAL_CAN_Init(&CanHandle) != HAL_OK)
+  {
+    /* Initialization Error */
+    Error_Handler();
+  }
+
+  /*##-3- Start the CAN peripheral ###########################################*/
+  if (HAL_CAN_Start(&CanHandle) != HAL_OK)
+  {
+    /* Start Error */
+    Error_Handler();
+  }
+
+  /*##-4- Activate CAN RX notification #######################################*/
+  if (HAL_CAN_ActivateNotification(&CanHandle,  (CAN_IT_RX_FIFO0_MSG_PENDING | CAN_IT_RX_FIFO1_MSG_PENDING )) != HAL_OK)
+  {
+    /* Notification Error */
+    Error_Handler();
+  }
+
+
+
+
+//   CAN_SetFilterMaskMode32(CAN1, 0, 0x300, 0xF00, CAN_ID_STD, CAN_FILTER_FIFO0);  // fbank0  fno 0        out 326 327
+//   CAN_SetFilterMaskMode32(CAN1, 1, 0x336, 0xFFE, CAN_ID_STD, CAN_FILTER_FIFO1);  // fbank1  fno 1        out 336 337
+  	 CAN_SetFilterListMode32(CAN1, 0, 0x2FF, 0x39D, CAN_ID_STD, CAN_FILTER_FIFO0);  // fbank2  fno 2 and 3  out 343 344
+//   CAN_SetFilterMaskMode16(CAN1, 3, 0x353, 0xFFF, 0x354, 0xFFF, CAN_FILTER_FIFO0); // fbank3  fno 4 and 5  out 353 354
+//   CAN_SetFilterListMode16(CAN1, 4, 0x360, 0x361, 0x362, 0x363, CAN_FILTER_FIFO1); // fbank4  fno 6 7 8 9  out 360 361 362 363
+
+ // CAN_DoFilter(CAN1,0,0x326,0xFFE);
+
+
+   printf("\r\n ###### Can Configuration OK  ######\r\n");
+
+}
+ 
+
+/**
+  * @brief  Rx Fifo 0 message pending callback
+  * @param  hcan: pointer to a CAN_HandleTypeDef structure that contains
+  *         the configuration information for the specified CAN.
+  * @retval None
+  */
